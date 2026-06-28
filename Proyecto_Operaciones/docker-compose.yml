@@ -1,0 +1,21 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: operaciones_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: operaciones
+      POSTGRES_PASSWORD: operaciones_dev
+      POSTGRES_DB: operaciones
+    ports:
+      - "5433:5432"
+    volumes:
+      - operaciones_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U operaciones -d operaciones"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  operaciones_pgdata:
