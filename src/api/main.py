@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session
 
 from api.deps import db_session
 from api.routers import movements as movements_router
-from api.services import build_dashboard
+from api.services import build_account_detail, build_dashboard, build_rubro_detail
 from db.models import Lodge, Region
 from operaciones.settings import get_settings
 
@@ -104,6 +104,7 @@ def lodge_dashboard_json(code: str, session: Session = Depends(db_session)) -> d
         },
         "comparisons": [
             {
+                "rubro_id": c.rubro_id,
                 "rubro": c.rubro,
                 "criterio": c.criterio,
                 "account_codes": list(c.account_codes),
@@ -113,6 +114,7 @@ def lodge_dashboard_json(code: str, session: Session = Depends(db_session)) -> d
                 "real_per_bn": c.real_per_bn,
                 "variance_pct": c.variance_pct,
                 "observation": c.observacion,
+                "is_income": c.is_income,
             }
             for c in payload.comparisons
         ],
@@ -126,8 +128,92 @@ def lodge_dashboard_json(code: str, session: Session = Depends(db_session)) -> d
                 "reason": f.reason,
                 "obs_cliente": f.obs_cliente,
                 "is_seasonal": f.is_seasonal,
+                "is_income": f.is_income,
             }
             for f in payload.flags
+        ],
+        "mom_flags": [
+            {
+                "rubro": f.rubro_or_account,
+                "rule": f.rule,
+                "severity": f.severity,
+                "value": f.value,
+                "impact_usd": f.impact_usd,
+                "reason": f.reason,
+                "obs_cliente": f.obs_cliente,
+                "is_seasonal": f.is_seasonal,
+                "is_income": f.is_income,
+            }
+            for f in payload.mom_flags
+        ],
+    }
+
+
+@app.get("/api/lodges/{code}/rubros/{rubro_id}")
+def lodge_rubro_detail(
+    code: str, rubro_id: str, session: Session = Depends(db_session),
+) -> dict[str, Any]:
+    payload = build_rubro_detail(session, code, rubro_id)
+    if payload is None:
+        raise HTTPException(status_code=404, detail="Lodge o rubro no encontrado")
+    return {
+        "lodge": {"code": payload.lodge_code, "name": payload.lodge_name},
+        "rubro": {
+            "id": payload.rubro_id,
+            "name": payload.rubro_name,
+            "criterio": payload.criterio,
+        },
+        "season": {
+            "bn_real": payload.bn_real,
+            "bn_budget": payload.bn_budget,
+        },
+        "budget_usd": payload.budget_usd,
+        "real_usd": payload.real_usd,
+        "budget_per_bn": payload.budget_per_bn,
+        "real_per_bn": payload.real_per_bn,
+        "variance_pct": payload.variance_pct,
+        "observation": payload.observation,
+        "is_income": payload.is_income,
+        "accounts": [
+            {
+                "code": a.code,
+                "name": a.name,
+                "total_usd": a.total_usd,
+                "n_movements": a.n_movements,
+            }
+            for a in payload.accounts
+        ],
+    }
+
+
+@app.get("/api/lodges/{code}/accounts/{account_code}/detail")
+def lodge_account_detail(
+    code: str, account_code: str, session: Session = Depends(db_session),
+) -> dict[str, Any]:
+    payload = build_account_detail(session, code, account_code)
+    if payload is None:
+        raise HTTPException(status_code=404, detail="Lodge o cuenta no encontrada")
+    return {
+        "lodge": {"code": payload.lodge_code, "name": payload.lodge_name},
+        "account": {
+            "code": payload.code,
+            "name": payload.name,
+            "rubro_principal": payload.rubro_principal,
+            "rubro_secundario": payload.rubro_secundario,
+            "rubro_final": payload.rubro_final,
+            "is_income": payload.is_income,
+        },
+        "total_usd": payload.total_usd,
+        "n_movements": payload.n_movements,
+        "first_date": payload.first_date,
+        "last_date": payload.last_date,
+        "monthly": [
+            {
+                "month_key": m.month_key,
+                "total_usd": m.total_usd,
+                "n_movements": m.n_movements,
+            }
+            for m in payload.monthly
         ],
     }
 

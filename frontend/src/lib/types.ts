@@ -13,6 +13,7 @@ export type LodgeSummary = {
 };
 
 export type RubroComparison = {
+  rubro_id: string | null;
   rubro: string;
   criterio: string | null;
   account_codes: string[];
@@ -22,6 +23,51 @@ export type RubroComparison = {
   real_per_bn: number | null;
   variance_pct: number | null;
   observation: string | null;
+  is_income: boolean;
+};
+
+export type AccountBreakdown = {
+  code: string;
+  name: string;
+  total_usd: number;
+  n_movements: number;
+};
+
+export type RubroDetail = {
+  lodge: { code: string; name: string };
+  rubro: { id: string; name: string; criterio: string | null };
+  season: { bn_real: number | null; bn_budget: number | null };
+  budget_usd: number | null;
+  real_usd: number;
+  budget_per_bn: number | null;
+  real_per_bn: number | null;
+  variance_pct: number | null;
+  observation: string | null;
+  is_income: boolean;
+  accounts: AccountBreakdown[];
+};
+
+export type MonthlySpend = {
+  month_key: string;
+  total_usd: number;
+  n_movements: number;
+};
+
+export type AccountDetail = {
+  lodge: { code: string; name: string };
+  account: {
+    code: string;
+    name: string;
+    rubro_principal: string | null;
+    rubro_secundario: string | null;
+    rubro_final: string | null;
+    is_income: boolean;
+  };
+  total_usd: number;
+  n_movements: number;
+  first_date: string | null;
+  last_date: string | null;
+  monthly: MonthlySpend[];
 };
 
 export type Flag = {
@@ -33,6 +79,7 @@ export type Flag = {
   reason: string;
   obs_cliente: string | null;
   is_seasonal: boolean;
+  is_income: boolean;
 };
 
 export type DashboardPayload = {
@@ -49,6 +96,15 @@ export type DashboardPayload = {
   };
   comparisons: RubroComparison[];
   flags: Flag[];
+  mom_flags: Flag[];
+};
+
+export type MovementsFilters = {
+  page?: number;
+  pageSize?: number;
+  from_date?: string;
+  to_date?: string;
+  account?: string;
 };
 
 export type AccountOption = {

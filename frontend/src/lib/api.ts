@@ -3,12 +3,14 @@
  * NEXT_PUBLIC_API_URL en .env.local; default a localhost en dev.
  */
 import type {
+  AccountDetail,
   AccountOption,
   DashboardPayload,
   LodgeSummary,
   Movement,
   MovementCreate,
   MovementsList,
+  RubroDetail,
 } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
@@ -62,10 +64,32 @@ export const api = {
     request<DashboardPayload>(`/api/lodges/${code}/dashboard`),
   accounts: (code: string) =>
     request<AccountOption[]>(`/api/lodges/${code}/accounts`),
-  listMovements: (code: string, page = 1, pageSize = 50) =>
-    request<MovementsList>(
-      `/api/lodges/${code}/movements?page=${page}&page_size=${pageSize}`,
+  rubroDetail: (code: string, rubroId: string) =>
+    request<RubroDetail>(`/api/lodges/${code}/rubros/${rubroId}`),
+  accountDetail: (code: string, accountCode: string) =>
+    request<AccountDetail>(
+      `/api/lodges/${code}/accounts/${accountCode}/detail`,
     ),
+  listMovements: (
+    code: string,
+    filters: {
+      page?: number;
+      pageSize?: number;
+      from_date?: string;
+      to_date?: string;
+      account?: string;
+    } = {},
+  ) => {
+    const qs = new URLSearchParams();
+    qs.set("page", String(filters.page ?? 1));
+    qs.set("page_size", String(filters.pageSize ?? 50));
+    if (filters.from_date) qs.set("from_date", filters.from_date);
+    if (filters.to_date) qs.set("to_date", filters.to_date);
+    if (filters.account) qs.set("account", filters.account);
+    return request<MovementsList>(
+      `/api/lodges/${code}/movements?${qs.toString()}`,
+    );
+  },
   createMovement: (code: string, payload: MovementCreate) =>
     request<Movement>(`/api/lodges/${code}/movements`, {
       method: "POST",

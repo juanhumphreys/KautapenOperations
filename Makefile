@@ -1,13 +1,14 @@
+PYTHON_BIN ?= python3.11
 PYTHON ?= .venv/bin/python
 PIP ?= .venv/bin/pip
 FRONTEND_DIR ?= frontend
 
-.PHONY: setup backend-setup frontend-setup db-up db-down migrate seed import reconcile api web demo test clean
+.PHONY: setup backend-setup frontend-setup db-up db-down wait-db migrate seed import reconcile bootstrap api web web-clean dev demo test clean
 
 setup: backend-setup frontend-setup
 
 .venv:
-	python3 -m venv .venv
+	$(PYTHON_BIN) -m venv .venv
 
 backend-setup: .venv
 	$(PIP) install -e ".[api,dev]"
@@ -20,6 +21,13 @@ db-up:
 
 db-down:
 	docker compose down
+
+wait-db:
+	@echo "→ esperando Postgres…"
+	@until docker exec operaciones_db pg_isready -U operaciones -d operaciones >/dev/null 2>&1; do sleep 1; done
+
+bootstrap: db-up wait-db migrate seed import reconcile
+	@echo "✔ bootstrap listo"
 
 migrate:
 	$(PYTHON) -m alembic upgrade head
@@ -38,6 +46,17 @@ api:
 
 web:
 	cd $(FRONTEND_DIR) && npm run dev
+
+web-clean:
+	rm -rf $(FRONTEND_DIR)/.next
+	cd $(FRONTEND_DIR) && npm run dev
+
+dev: bootstrap
+	@echo "→ API en :8000 y web en :3000 (Ctrl+C para detener)"
+	@trap 'kill 0' INT TERM; \
+	  $(PYTHON) scripts/serve.py & \
+	  (cd $(FRONTEND_DIR) && npm run dev) & \
+	  wait
 
 demo:
 	$(PYTHON) scripts/run_demo.py

@@ -52,6 +52,7 @@ class Flag:
     impact_usd: Optional[float] = None   # delta absoluto en USD — la magnitud "real"
     obs_cliente: Optional[str] = None    # observación manual asociada, si la hay
     is_seasonal: bool = False            # rubro de pago estacional (timing posible)
+    is_income: bool = False              # True si el rubro es de ingreso (semántica invertida)
 
 
 def _severity(pct: float) -> str:
@@ -106,6 +107,7 @@ def flag_budget_deviations(
             impact_usd=impact,
             obs_cliente=c.observacion or None,
             is_seasonal=seasonal,
+            is_income=c.is_income,
         ))
     # Orden default: por impacto USD absoluto (lo que mueve plata real va primero).
     out.sort(key=lambda f: -abs(f.impact_usd or 0))
@@ -117,7 +119,12 @@ def flag_month_over_month(
     threshold_pct: float = THRESHOLD_MOM_PCT,
     min_usd: float = MIN_USD_FOR_FLAG,
 ) -> list[Flag]:
-    """Compara cada cuenta consigo misma en meses consecutivos."""
+    """Compara cada cuenta consigo misma en meses consecutivos.
+
+    Si alguno de los dos meses está por debajo del umbral de ruido (min_usd),
+    el % se vuelve engañoso (ej. de $11 a $504 = +4261%). En esos casos
+    reportamos solo el delta absoluto y la severity la decidimos por |delta|.
+    """
     by_acc: dict[tuple[str, str], dict[str, AccountMonthlySpend]] = defaultdict(dict)
     for s in spends:
         by_acc[(s.lodge_code, s.account_code)][s.month_key] = s
@@ -128,21 +135,41 @@ def flag_month_over_month(
         for prev_m, cur_m in zip(months, months[1:]):
             prev_s = by_month[prev_m]
             cur_s = by_month[cur_m]
+            delta = cur_s.amount_usd - prev_s.amount_usd
+            # Ambos meses muy chicos → ruido, no flag.
             if abs(prev_s.amount_usd) < min_usd and abs(cur_s.amount_usd) < min_usd:
                 continue
-            if prev_s.amount_usd == 0:
-                continue   # nuevo gasto: en demo evitamos, suelen ser artefactos
-            pct = (cur_s.amount_usd - prev_s.amount_usd) / abs(prev_s.amount_usd)
-            if abs(pct) < threshold_pct:
-                continue
+            # Denominador chico (o cero): el % no sirve. Reportamos solo |delta|.
+            small_prev = abs(prev_s.amount_usd) < min_usd or prev_s.amount_usd == 0
+            if small_prev:
+                if abs(delta) < min_usd:
+                    continue   # el salto en sí también es chico
+                pct = None
+                sev = (
+                    "alert" if abs(delta) >= 3000
+                    else "warn" if abs(delta) >= 1000
+                    else "info"
+                )
+                reason = (f"{prev_m}→{cur_m}: "
+                          f"USD {prev_s.amount_usd:,.0f} → {cur_s.amount_usd:,.0f} "
+                          f"(Δ {delta:+,.0f} USD · mes anterior muy chico para %)")
+            else:
+                pct = delta / abs(prev_s.amount_usd)
+                if abs(pct) < threshold_pct:
+                    continue
+                sev = _severity(pct)
+                reason = (f"{prev_m}→{cur_m}: "
+                          f"USD {prev_s.amount_usd:,.0f} → {cur_s.amount_usd:,.0f} "
+                          f"({pct:+.1%})")
             out.append(Flag(
                 lodge_code=lodge,
                 rubro_or_account=f"{acc} {cur_s.account_name}",
                 rule="SALTO_MOM",
-                severity=_severity(pct),
-                reason=(f"{prev_m}→{cur_m}: "
-                        f"USD {prev_s.amount_usd:,.0f} → {cur_s.amount_usd:,.0f} "
-                        f"({pct:+.1%})"),
+                severity=sev,
+                reason=reason,
                 value=pct,
+                impact_usd=delta,
             ))
+    # Orden default: por impacto USD absoluto del salto (los más fuertes primero).
+    out.sort(key=lambda f: -abs(f.impact_usd or 0))
     return out

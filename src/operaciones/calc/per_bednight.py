@@ -50,6 +50,8 @@ class RubroComparison:
     variance_per_bn: Optional[float]   # real - budget (USD/BN)
     variance_pct: Optional[float]      # (real - budget) / budget
     observacion: Optional[str]
+    is_income: bool = False            # True para rubros de Other Income (Shop, Extras, Gun Rental)
+    rubro_id: Optional[str] = None     # UUID del rubro en DB — para drilldown desde el dashboard
 
 
 def aggregate_by_account_month(

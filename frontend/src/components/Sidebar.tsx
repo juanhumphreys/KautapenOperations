@@ -26,6 +26,11 @@ export default function Sidebar({
       icon: <IconChart />,
     },
     {
+      href: `/lodges/${current.code}/rubros`,
+      label: "Rubros",
+      icon: <IconStack />,
+    },
+    {
       href: `/lodges/${current.code}/cargar`,
       label: "Cargar movimiento",
       icon: <IconPlus />,
@@ -36,6 +41,11 @@ export default function Sidebar({
       icon: <IconList />,
     },
   ];
+  // Las páginas de cuenta-detalle viven en /cuentas/[code] pero conceptualmente
+  // se entra desde el rubro, así que resaltamos "Rubros".
+  const activeHref = pathname.includes(`/cuentas/`)
+    ? `/lodges/${current.code}/rubros`
+    : null;
 
   return (
     <aside className="fixed inset-y-0 left-0 z-30 flex w-64 flex-col bg-slate-900 text-slate-100">
@@ -61,7 +71,10 @@ export default function Sidebar({
         </div>
         <ul className="space-y-0.5">
           {nav.map((item) => {
-            const isActive = pathname === item.href;
+            const isActive =
+              activeHref === item.href ||
+              pathname === item.href ||
+              pathname.startsWith(`${item.href}/`);
             return (
               <li key={item.href}>
                 <Link
@@ -113,6 +126,15 @@ function IconList() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
       <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IconStack() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+      <path d="M12 3l9 5-9 5-9-5 9-5z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+      <path d="M3 13l9 5 9-5M3 17l9 5 9-5" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
     </svg>
   );
 }
